@@ -20,6 +20,15 @@ type W2V() =
   member this.W2V with get() = w2v
   member this.V2W with get() = v2w
 
+let Point2PointF (p:Point) =
+    PointF( float32(p.X), float32(p.Y))
+let PointFtoPoint (p:PointF) =
+    Point(int(p.X), int(p.Y))
+
+let Size2SizeF (s:Size) =
+    SizeF( float32(s.Width), float32(s.Height))
+let SizeFtoSize (s:SizeF) =
+    Size(int(s.Width), int(s.Height))
 let Rect2RectF (r:Rectangle) =
   RectangleF(single r.X, single r.Y, single r.Width, single r.Height)
 
@@ -45,7 +54,7 @@ type LWControl() =
     with get() = coordinates
     and set(v) = coordinates <- v
  
-  member this.Position
+  member this.Location
     with get() = location
     and set(v) = location <- v
 
@@ -56,8 +65,10 @@ type LWControl() =
   member this.Parent 
     with get() = parent
     and set(v) = parent <- v
-
+  member this.Click= clickevt.Publish
   member this.MouseDown = mousedownevt.Publish
+  member this.MouseUp = mouseupevt.Publish
+  member this.MouseMove = mousemoveevt.Publish
 
   abstract OnMouseDown : MouseEventArgs -> unit
   default this.OnMouseDown e = mousedownevt.Trigger(e)
@@ -70,11 +81,12 @@ type LWControl() =
 
   abstract OnPaint : PaintEventArgs -> unit
   default this.OnPaint e = ()
-
+  member this.Invalidate() =
+    if parent <> null then parent.Invalidate()
 
   abstract HitTest : PointF -> bool
   default this.HitTest p =
-    (new RectangleF(position, size)).Contains(p)
+    (new RectangleF(location, size)).Contains(p)
 
 type LWContainer() as this =
   inherit UserControl()
@@ -170,34 +182,22 @@ type Rectbutton() as this =
   
   inherit LWControl()
   
-  do this.Size <- SizeF(32.f, 32.f)
+  do this.Size <- SizeF(64.f, 32.f)
   let mutable text = ""
   let mutable selected = false
-  member this.Click = clickevt.Publish
-  member this.MouseDown = downevt.Publish
-  member this.MouseUp = upevt.Publish
-  member this.MouseMove = moveevt.Publish
-
 
   member this.Text   
    with get() = text
-   and set(v) = text <- v; this.Invalidate() // cerca di capire questo medoto e fai sotto uguale
+   and set(v) = text <- v; this.Invalidate() 
   
   member this.Selected
    with get() = selected
    and set(v)= selected<-v;this.Invalidate() 
 
-  override this.OnMouseUp e = upevt.Trigger(e); clickevt.Trigger(new System.EventArgs())
-
-  override this.OnMouseMove e = moveevt.Trigger(e)
-
-  override this.OnMouseDown e = downevt.Trigger(e)
-
   override this.OnPaint e =
     let g = e.Graphics
-    if selected
-        then g.FillRectangle(Brushes.Orange, new Rectangle(0,0, int(this.Size.Width),int(this.Size.Height)) );
-    else g.FillRectangle( Brushes.Khaki , new Rectangle(0,0, int(this.Size.Width),int(this.Size.Height)));
+    g.FillRectangle(Brushes.Gray , new Rectangle( PointFtoPoint(this.Location), SizeFtoSize(this.Size) ) );
     let sz = g.MeasureString(text, this.Parent.Font)
-    g.DrawString(text, this.Parent.Font, Brushes.Black, PointF((this.Size.Width - sz.Width) / 2.f, (this.Size.Height - sz.Height) / 2.f))
- 
+    g.DrawString(text, this.Parent.Font, Brushes.Black, PointF(((this.Size.Width - sz.Width) / 2.f)+this.Location.X, (this.Size.Height - sz.Height) / 2.f+this.Location.Y))
+
+type FontButton
