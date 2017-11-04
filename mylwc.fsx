@@ -116,6 +116,7 @@ type LWContainer() as this =
       match (controlsWorld |> Seq.tryFind(fun c -> c.HitTest pw)) with
       | Some c -> c.OnMouseDown(e)
       | None -> ()
+   
 
   override this.OnMouseMove e =
     let p = PointF(single e.X, single e.Y)
@@ -183,6 +184,8 @@ type Rectbutton() as this =
   do this.Size <- SizeF(64.f, 32.f)
   let mutable text = ""
   let mutable selected = false
+
+  let mutable font = Font("Arial", 8.f)
   let clickevt = new Event<System.EventArgs>()
   let mousedownevt = new Event<MouseEventArgs>()
   let mousemoveevt = new Event<MouseEventArgs>()
@@ -199,6 +202,10 @@ type Rectbutton() as this =
   member this.Selected
    with get() = selected
    and set(v)= selected<-v;this.Invalidate()
+  member this.Font
+    with get() = font
+    and set(v) = font<- v
+ 
   
   override this.OnMouseUp e = mouseupevt.Trigger(e); clickevt.Trigger(new System.EventArgs())
   
@@ -206,7 +213,9 @@ type Rectbutton() as this =
     let g = e.Graphics
     g.FillRectangle(Brushes.Gray , new Rectangle( PointFtoPoint(this.Location), SizeFtoSize(this.Size) ) );
     let sz = g.MeasureString(text, this.Parent.Font)
-    g.DrawString(text, this.Parent.Font, Brushes.Black, PointF(((this.Size.Width - sz.Width) / 2.f)+this.Location.X, (this.Size.Height - sz.Height) / 2.f+this.Location.Y))
+    g.DrawString(text, Font(this.Font.FontFamily, 8.f), Brushes.Black, PointF(((this.Size.Width - sz.Width) / 2.f)+this.Location.X, (this.Size.Height - sz.Height) / 2.f+this.Location.Y))
+    if this.Selected then
+      g.DrawRectangle(Pen(Color.Black, 2.f) , new Rectangle( PointFtoPoint(this.Location), SizeFtoSize(this.Size) ) );
     base.OnPaint(e)
 
 
@@ -252,7 +261,7 @@ type CirButtons() as this =
     let g = e.Graphics
     g.FillEllipse( new SolidBrush(this.Color), new Rectangle(PointFtoPoint(this.Location), SizeFtoSize(this.Size)))
     let sz = g.MeasureString(text, this.Parent.Font)
-    g.DrawString(text, this.Parent.Font, Brushes.White, PointF((this.Size.Width - sz.Width) / 2.f, (this.Size.Height - sz.Height) / 2.f))
+    g.DrawString(text, this.Parent.Font, Brushes.White, PointF(((this.Size.Width - sz.Width) / 2.f )+this.Location.X, ((this.Size.Height - sz.Height) / 2.f)+this.Location.Y))
     if this.Selected then
-      g.DrawEllipse(Pen(this.Color),new Rectangle( int(this.Location.X)+2, int(this.Location.Y)+2, int(this.Size.Width)+2, int(this.Size.Height)+2)) 
+      g.DrawEllipse(Pen(this.Color),new Rectangle( int(this.Location.X)-4, int(this.Location.Y)-4, int(this.Size.Width)+8, int(this.Size.Height)+8)) 
 
