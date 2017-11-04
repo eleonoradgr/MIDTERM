@@ -44,11 +44,11 @@ type LWControl() =
   let mutable size = SizeF()
 
   let mutable parent : Control = null
-
   let clickevt = new Event<System.EventArgs>()
   let mousedownevt = new Event<MouseEventArgs>()
   let mousemoveevt = new Event<MouseEventArgs>()
   let mouseupevt = new Event<MouseEventArgs>()
+  
 
   member this.CoordinateType
     with get() = coordinates
@@ -65,10 +65,8 @@ type LWControl() =
   member this.Parent 
     with get() = parent
     and set(v) = parent <- v
-  member this.Click= clickevt.Publish
-  member this.MouseDown = mousedownevt.Publish
-  member this.MouseUp = mouseupevt.Publish
-  member this.MouseMove = mousemoveevt.Publish
+  
+
 
   abstract OnMouseDown : MouseEventArgs -> unit
   default this.OnMouseDown e = mousedownevt.Trigger(e)
@@ -185,19 +183,76 @@ type Rectbutton() as this =
   do this.Size <- SizeF(64.f, 32.f)
   let mutable text = ""
   let mutable selected = false
+  let clickevt = new Event<System.EventArgs>()
+  let mousedownevt = new Event<MouseEventArgs>()
+  let mousemoveevt = new Event<MouseEventArgs>()
+  let mouseupevt = new Event<MouseEventArgs>()
 
+  member this.Click= clickevt.Publish
+  member this.MouseDown = mousedownevt.Publish
+  member this.MouseUp = mouseupevt.Publish
+  member this.MouseMove = mousemoveevt.Publish
   member this.Text   
    with get() = text
    and set(v) = text <- v; this.Invalidate() 
   
   member this.Selected
    with get() = selected
-   and set(v)= selected<-v;this.Invalidate() 
-
+   and set(v)= selected<-v;this.Invalidate()
+  
+  override this.OnMouseUp e = mouseupevt.Trigger(e); clickevt.Trigger(new System.EventArgs())
+  
   override this.OnPaint e =
     let g = e.Graphics
     g.FillRectangle(Brushes.Gray , new Rectangle( PointFtoPoint(this.Location), SizeFtoSize(this.Size) ) );
     let sz = g.MeasureString(text, this.Parent.Font)
     g.DrawString(text, this.Parent.Font, Brushes.Black, PointF(((this.Size.Width - sz.Width) / 2.f)+this.Location.X, (this.Size.Height - sz.Height) / 2.f+this.Location.Y))
+    base.OnPaint(e)
 
-type FontButton
+
+type CirButtons() as this =
+  inherit LWControl()
+  
+  do this.Size <- SizeF(32.f, 32.f)
+  let mutable text = ""
+  let mutable selected = false
+  let mutable color = Color.Black
+  
+  let clickevt = new Event<System.EventArgs>()
+  let mousedownevt = new Event<MouseEventArgs>()
+  let mousemoveevt = new Event<MouseEventArgs>()
+  let mouseupevt = new Event<MouseEventArgs>()
+
+  member this.Click= clickevt.Publish
+  member this.MouseDown = mousedownevt.Publish
+  member this.MouseUp = mouseupevt.Publish
+  member this.MouseMove = mousemoveevt.Publish
+  member this.Text   
+   with get() = text
+   and set(v) = text <- v; this.Invalidate() 
+  
+  member this.Selected
+   with get() = selected
+   and set(v)= selected<-v;this.Invalidate()
+  member this.Color
+    with get() = color
+    and set(v) = color<-v; this.Invalidate()
+  
+  
+  override this.HitTest p =
+    let radius = this.Size.Width/2.f
+    let center = PointF( this.Location.X + (this.Size.Width/2.f), this.Location.Y + (this.Size.Height/2.f))
+    let sqr v = v * v
+    let x1, y1 = center.X - float32(p.X), center.Y - float32(p.Y)
+    sqr x1 + sqr y1 <= sqr radius
+
+  override this.OnMouseUp e = mouseupevt.Trigger(e); clickevt.Trigger(new System.EventArgs())
+  
+  override this.OnPaint e =
+    let g = e.Graphics
+    g.FillEllipse( new SolidBrush(this.Color), new Rectangle(PointFtoPoint(this.Location), SizeFtoSize(this.Size)))
+    let sz = g.MeasureString(text, this.Parent.Font)
+    g.DrawString(text, this.Parent.Font, Brushes.White, PointF((this.Size.Width - sz.Width) / 2.f, (this.Size.Height - sz.Height) / 2.f))
+    if this.Selected then
+      g.DrawEllipse(Pen(this.Color),new Rectangle( int(this.Location.X)+2, int(this.Location.Y)+2, int(this.Size.Width)+2, int(this.Size.Height)+2)) 
+
