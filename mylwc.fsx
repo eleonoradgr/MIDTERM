@@ -12,6 +12,10 @@ type W2V() =
   member this.Rotate(a) =
     w2v.Rotate(a)
     v2w.Rotate(-a, Drawing2D.MatrixOrder.Append)
+  
+  member this.RotateAtCenter (a, p) =
+    w2v.RotateAt(a, p)
+    v2w.RotateAt(-a, p, Drawing2D.MatrixOrder.Append)
 
   member this.Scale(sx, sy) =
     w2v.Scale(sx, sy)
@@ -34,6 +38,11 @@ let Rect2RectF (r:Rectangle) =
 
 let RectF2Rect (r:RectangleF) =
   Rectangle(int r.X, int r.Y, int r.Width, int r.Height)
+
+let TransformPoint (m:Drawing2D.Matrix) (p:PointF) =
+        let pts = [| p |]
+        m.TransformPoints(pts)
+        pts.[0]   
 
 type CoordinateType = View | World
 
@@ -94,7 +103,7 @@ type LWContainer() as this =
     m.TransformPoints(pts)
     pts.[0]
 
-  let transform = W2V()
+  let mutable transform = W2V()
 
   let controls = ResizeArray<LWControl>()
 
@@ -104,7 +113,9 @@ type LWContainer() as this =
 
   
   member this.LWControls with get() = controls
-
+  member this.Transform 
+    with get() = transform
+    and set(v) = transform <- v
   override this.OnMouseDown e =
     let p = PointF(single e.X, single e.Y)
     let controlsView = controls |> Seq.filter (fun c -> c.CoordinateType = View)
