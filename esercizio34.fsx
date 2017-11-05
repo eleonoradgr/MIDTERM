@@ -12,10 +12,10 @@ type Letter () as this =
     let mutable size= SizeF(26.f,32.f)
 
     let mutable char = string()
-    let mutable font = Font("Arial", 18.f)
+    let mutable font = new Font("Arial", 18.f)
     let mutable color = Color.Black
     let mutable uppercase= true
-    let mutable mat = new W2V()
+    let mutable mat =  W2V()
     let mutable selected = true
 
     member this.Char
@@ -100,7 +100,7 @@ type Editor() as this=
     |]
     let buttonUL= new Rectbutton(Text="UPPER",Location=PointF(16.f,160.f))
     let fontButtons=[|
-        new Rectbutton(Text="Monospace",Location=PointF(16.f, 200.f),Font= Font(FontFamily.GenericMonospace, 20.f), Selected=true);
+        new Rectbutton(Text="Monospace",Location=PointF(16.f, 200.f),Font= new Font(FontFamily.GenericMonospace, 20.f), Selected=true);
         new Rectbutton(Text="SansSerif", Location=PointF(16.f, 240.f), Font= new Font(FontFamily.GenericSansSerif,20.f));
         new Rectbutton(Text="Serif", Location=PointF(16.f, 280.f), Font= new Font(FontFamily.GenericSerif,20.f));
     |]
@@ -134,6 +134,9 @@ type Editor() as this=
     let mutable lTimer= new Timer(Interval=450) //timer per tick scrittura lettera
     let mutable aus= 4
     let mutable helpTimer= new Timer(Interval=1000) //timer per messaggio di aiuto
+
+    let mutable drag=false
+    let mutable offset= PointF(0.f, 0.f)
     
     let mutable scrollDir=""
     let moving s =
@@ -162,19 +165,27 @@ type Editor() as this=
             if lselected <> -1 then
                 let p= letters.[lselected].Center
                 letters.[lselected].Mat.RotateAtCenter(-10.f, p)
+            else for l in letters do 
+                    let p= l.Center
+                    l.Mat.RotateAtCenter(-10.f, p)
             this.Invalidate()
         |"->"->
-            if lselected <> -1 then
+            if lselected >= 0 then
                 let p= letters.[lselected].Center
                 letters.[lselected].Mat.RotateAtCenter(10.f, p)
+            else for l in letters do 
+                    let p= l.Center
+                    l.Mat.RotateAtCenter(10.f, p)   
             this.Invalidate()
         |"+"->
             if lselected <> -1 then
                 letters.[lselected].IncreaseSize
+            else this.Transform.Scale(1.1f,1.1f)
             this.Invalidate()
         |"-"->
             if lselected <> -1 then
                 letters.[lselected].DecreaseSize
+            else this.Transform.Scale(1.f/1.1f,1.f/1.1f)
             this.Invalidate()
         |_->()
 
@@ -215,12 +226,12 @@ type Editor() as this=
         )
         buttons.[2].Click.Add( fun _ ->
             
-            if (lselected <> -1) then
+            if (lselected >= 0) then
                 startDrawing<-letters.[lselected].Location
                 letters.RemoveAt(lselected)
             else if (lselected = -2) then
                 //for i in [(letters.Count - 1)..0] do
-                letters.RemoveAll
+                letters.Clear()
                 startDrawing<-PointF(112.f, 32.f)    
             lselected<- -1
             this.Invalidate()
@@ -241,7 +252,7 @@ type Editor() as this=
                 f.Selected<-false
             fontButtons.[0].Selected<-true
             if(lselected <> -1) then
-                letters.[lselected].Font <- fontButtons.[0].Font
+                letters.[lselected].Font <- new Font( fontButtons.[0].Font.FontFamily, letters.[lselected].Font.Size)
             this.Invalidate()
             this.Invalidate()
         )
@@ -250,7 +261,7 @@ type Editor() as this=
                 f.Selected<-false
             fontButtons.[1].Selected<-true
             if(lselected <> -1) then
-                letters.[lselected].Font <- fontButtons.[1].Font
+                letters.[lselected].Font <- new Font( fontButtons.[0].Font.FontFamily, letters.[lselected].Font.Size)
             this.Invalidate()
             this.Invalidate()
         )
@@ -259,7 +270,7 @@ type Editor() as this=
                 f.Selected<-false
             fontButtons.[2].Selected<-true
             if(lselected <> -1) then
-                letters.[lselected].Font <- fontButtons.[2].Font
+                letters.[lselected].Font <- new Font( fontButtons.[0].Font.FontFamily, letters.[lselected].Font.Size)
             this.Invalidate()
             this.Invalidate()
         )
@@ -325,7 +336,7 @@ type Editor() as this=
         match index with
             |Some idx ->
                 fontButtons.[idx].Font
-            |_ -> Font(FontFamily.GenericMonospace, 12.f)
+            |_ -> new Font(FontFamily.GenericMonospace, 12.f)
     member this.getSelectedColor =
         let index= colorButtons |> Seq.tryFindIndex(fun c -> c.Selected)
         match index with
@@ -356,9 +367,40 @@ type Editor() as this=
         x|| buttonUL.HitTest(Point2PointF(p))
         
     override this.OnKeyDown e =
+        if (not havetodraw) then
+            match e.KeyCode with
+            | Keys.W ->
+                scrollDir<- "U"
+                moving scrollDir
+            | Keys.A ->
+                scrollDir<- "L"
+                moving scrollDir
+            | Keys.S ->
+                scrollDir<- "D"
+                moving scrollDir
+            | Keys.D ->
+                scrollDir<- "R"
+                moving scrollDir
+            | Keys.Q->
+                scrollDir<- "<-"
+                moving scrollDir
+            | Keys.E ->
+                scrollDir<- "->"
+                moving scrollDir
+            | Keys.Z ->
+                scrollDir<- "+"
+                moving scrollDir
+            | Keys.X ->
+                scrollDir<- "-"
+                moving scrollDir
+            |_-> ()
         if (havetodraw && e.KeyValue>59 && e.KeyValue<91) then
             havetodraw<-false
-            letters.Add(new Letter(Char=(e.KeyCode.ToString()),Location=startDrawing, Font= this.getSelectedFont,Color=this.getSelectedColor))
+            let mutable s = e.KeyCode.ToString()
+            if(buttonUL.Text.Equals "UPPER") then
+                s<- s.ToUpper()
+            else s<-s.ToLower()
+            letters.Add(new Letter(Char=s,Location=startDrawing, Font= this.getSelectedFont,Color=this.getSelectedColor))
             lselected<-letters.Count - 1 
             startDrawing<-PointF(startDrawing.X+26.f, startDrawing.Y)
         if (havetodraw && e.KeyValue =32) then
@@ -369,6 +411,7 @@ type Editor() as this=
             havetodraw<-false
             startDrawing<-PointF(startDrawing.X, startDrawing.Y+32.f)
             lselected<- -1
+       
         printfn "%d" e.KeyValue
         
     override this.OnMouseDown e =
@@ -389,6 +432,9 @@ type Editor() as this=
                 lselected<-nrletters-idx-1
                 this.ChangeFont(letters.[lselected].Font)
                 this.ChangeColor(letters.[lselected].Color)
+                l1<- TransformPoint letters.[lselected].Mat.V2W l1
+                drag<-true
+                offset<- PointF(l1.X - letters.[lselected].Location.X,l1.Y - letters.[lselected].Location.Y)
                 this.Invalidate()
             |_ ->
                 for c in letters do
@@ -397,25 +443,46 @@ type Editor() as this=
                 this.Invalidate()
         if (e.Button.Equals(MouseButtons.Right)&& not (this.InButtons(l))) then
             startDrawing<- Point2PointF(l)
-        
+            for l in letters do
+                l.Selected<-false
+            havetodraw<-true
+            newl<- new Letter(Location= startDrawing)
+            lTimer.Start()
+            this.Invalidate()
+
+    override this.OnMouseMove e =
+        if(drag && lselected >= 0) then
+            base.OnMouseDown(e)
+            let l= e.Location
+            let mutable l1 = TransformPoint  this.Transform.V2W  (Point2PointF(l))
+            l1<- TransformPoint letters.[lselected].Mat.V2W l1
+            letters.[lselected].Location<- PointF(l1.X-offset.X, l1.Y-offset.Y)
+            this.Invalidate()
+        base.OnMouseMove(e)
+    
+    override this.OnMouseUp e =
+        if (drag && lselected >= 0) then
+            drag<-false
+        base.OnMouseUp(e)
+
 
     override this.OnPaint(e) =
-    let g= e.Graphics
-    let ctx = g.Save()
-    if (helpTimer.Enabled) then
-        g.DrawString("right Click to select where start writing", new Font(FontFamily.GenericMonospace, 8.f),
-                    Brushes.Black, PointF(90.f, 10.f))
-    if (havetodraw) then
-        newl.Paint(g)
-        if line then 
-            let s = new PointF(startDrawing.X+ 2.f, startDrawing.Y+2.f)
-            let e= new PointF(s.X, s.Y+28.f)
-            g.DrawLine(Pens.Black, s, e)
-    g.Transform<- this.Transform.W2V
-    for l in letters do
-        l.Paint(g)
-    g.Restore(ctx)
-    base.OnPaint(e)
+        base.OnPaint(e)
+        let g= e.Graphics
+        let ctx = g.Save()
+        if (helpTimer.Enabled) then
+            g.DrawString("Right Click to select where start writing", new Font(FontFamily.GenericMonospace, 8.f),Brushes.Black, PointF(90.f, 10.f))
+        if (havetodraw) then
+            newl.Paint(g)
+            if line then 
+                let s = new PointF(startDrawing.X+ 2.f, startDrawing.Y+2.f)
+                let e= new PointF(s.X, s.Y+28.f)
+                g.DrawLine(Pens.Black, s, e)
+        g.Transform<- this.Transform.W2V
+        for l in letters do
+            l.Paint(g)
+        g.Restore(ctx)
+        //base.OnPaint(e)
 
 
 
