@@ -70,31 +70,35 @@ type Editor() as this=
     inherit LWContainer()
 
     let buttons=[|
-        new Rectbutton(Text="Add", Location=PointF(16.f, 0.f));
-        new Rectbutton(Text="Delete", Location= PointF(16.f, 50.f ));
-        new Rectbutton(Text="Select all", Location=PointF(16.f, 100.f));
+        new Rectbutton(Text="Set Start Point", Location=PointF(8.f, 0.f), Size= SizeF(80.f,32.f) )
+        new Rectbutton(Text="Add", Location=PointF(16.f, 50.f));
+        new Rectbutton(Text="Delete", Location= PointF(16.f, 100.f ));
+        new Rectbutton(Text="Select all", Location=PointF(16.f, 150.f));
     |]
-    let buttonUL= new Rectbutton(Text="Upper",Location=PointF(16.f,150.f))
+    let buttonUL= new Rectbutton(Text="UPPER",Location=PointF(16.f,200.f))
     let fontButtons=[|
-        new Rectbutton(Text="Monospace",Location=PointF(16.f, 200.f),Font= Font(FontFamily.GenericMonospace, 20.f), Selected=true);
-        new Rectbutton(Text="SansSerif", Location=PointF(16.f, 250.f), Font= new Font(FontFamily.GenericSansSerif,20.f));
-        new Rectbutton(Text="Serif", Location=PointF(16.f, 300.f), Font= new Font(FontFamily.GenericSerif,20.f));
+        new Rectbutton(Text="Monospace",Location=PointF(16.f, 250.f),Font= Font(FontFamily.GenericMonospace, 20.f), Selected=true);
+        new Rectbutton(Text="SansSerif", Location=PointF(16.f, 300.f), Font= new Font(FontFamily.GenericSansSerif,20.f));
+        new Rectbutton(Text="Serif", Location=PointF(16.f, 350.f), Font= new Font(FontFamily.GenericSerif,20.f));
     |]
 
     let colorButtons= [|
-        new CirButtons(Text="B", Color= Color.Black,Location=PointF(32.f,350.f), Selected=true);
-        new CirButtons(Text="B", Color=Color.Blue, Location=PointF(32.f,400.f));
-        new CirButtons(Text="R", Color=Color.Red,Location=PointF(32.f,450.f));
+        new CirButtons(Text="B", Color= Color.Black,Location=PointF(32.f,400.f), Selected=true);
+        new CirButtons(Text="B", Color=Color.Blue, Location=PointF(32.f,450.f));
+        new CirButtons(Text="R", Color=Color.Red,Location=PointF(32.f,500.f));
     |]
 
 
     let mutable newl = Letter()
     let mutable letters = ResizeArray<Letter>();
+    let mutable startPoint = false
     let mutable startDrawing = PointF(112.f, 32.f)
     let mutable havetodraw=false
 
     let mutable lselected= -1
     let mutable lTimer= new Timer(Interval=450)
+    let mutable aus= 4
+    let mutable helpTimer= new Timer(Interval=1000)
     let mutable line=true;
 
     
@@ -112,7 +116,18 @@ type Editor() as this=
             else line<-true
             this.Invalidate()
         )
+        helpTimer.Tick.Add(fun _ ->
+            if(aus = 0) then
+                aus<- 4
+                helpTimer.Stop()
+            else aus<- aus - 1
+            this.Invalidate()
+        )
         buttons.[0].Click.Add(fun _ ->
+            startPoint<-true
+            helpTimer.Start()
+        )
+        buttons.[1].Click.Add(fun _ ->
             for l in letters do
                 l.Selected<-false
             havetodraw<-true
@@ -120,24 +135,27 @@ type Editor() as this=
             lTimer.Start()
             this.Invalidate()  
         )
-        buttons.[1].Click.Add( fun _ ->
-            for i in [letters.Count-1..0] do
-                if letters.[i].Selected then
-                   startDrawing<-letters.[i].Location
-                   letters.RemoveAt(i)
-                if letters.Count.Equals 0 then
-                   startDrawing<-PointF(112.f, 32.f) 
+        buttons.[2].Click.Add( fun _ ->
+            
+            if (lselected <> -1) then
+                startDrawing<-letters.[lselected].Location
+                letters.RemoveAt(lselected)
+            else if (lselected.Equals -2) then
+                letters<- new ResizeArray<Letter>()
+                startDrawing<-PointF(112.f, 32.f)    
             lselected<- -1
             this.Invalidate()
         )
-        buttons.[2].Click.Add( fun _ ->
+        buttons.[3].Click.Add( fun _ ->
             for l in letters do 
                 l.Selected<-true
-            lselected<- -1
+            lselected<- -2
             this.Invalidate()
         )
         buttonUL.Click.Add( fun _ ->
-            buttonUL.Text<-"lower"
+            if (buttonUL.Text.Equals "lower") then
+                buttonUL.Text <- "UPPER"
+            else buttonUL.Text<- "lower"
         ) 
         fontButtons.[0].Click.Add( fun _ ->
             for f in fontButtons do
@@ -190,18 +208,14 @@ type Editor() as this=
             |_ -> Color.Black
     member this.ChangeFont(f:Font) =
         for b in fontButtons do
-            match b.Font. with
-            |f ->
-                b.Selected<-true
-            | _ ->
-                b.Selected<-false
+            if b.Font.Equals f then 
+                b.Selected<- true
+            else b.Selected<-false
     member this.ChangeColor(c:Color) =
         for b in colorButtons do
-            match b.Color with
-            |c ->
-                b.Selected<-true
-            | _ ->
-                b.Selected<-false
+            if b.Color.Equals c then
+                b.Selected<-true     
+            else b.Selected<-false
             
     member this.InButtons(p:Point) =
         let mutable x = false
@@ -217,15 +231,15 @@ type Editor() as this=
         if (havetodraw && e.KeyValue>59 && e.KeyValue<91) then
             havetodraw<-false
             letters.Add(new Letter(Char=(e.KeyCode.ToString()),Location=startDrawing, Font= this.getSelectedFont,Color=this.getSelectedColor))
-            lselected<-letters.Count - 1
+            lselected<-letters.Count 
             startDrawing<-PointF(startDrawing.X+26.f, startDrawing.Y)
         if (havetodraw && e.KeyValue =32) then
             havetodraw<-false
             startDrawing<-PointF(startDrawing.X+26.f, startDrawing.Y)
             lselected<- -1
-        if (havetodraw && e.KeyValue =32) then
+        if (havetodraw && e.KeyValue =13) then
             havetodraw<-false
-            startDrawing<-PointF(26.f, startDrawing.Y+32.f)
+            startDrawing<-PointF(112.f, startDrawing.Y+32.f)
             lselected<- -1
         printfn "%d" e.KeyValue
         
@@ -252,9 +266,15 @@ type Editor() as this=
                 for c in letters do
                     c.Selected<-false
                 this.Invalidate()
+        if (e.Button.Equals(MouseButtons.Right)&& not (this.InButtons(l))) then
+            startDrawing<- Point2PointF(l)
+
 
     override this.OnPaint(e) =
     let g= e.Graphics
+    if (helpTimer.Enabled) then
+        g.DrawString("right Click to select where start writing", new Font(FontFamily.GenericMonospace, 8.f),
+                    Brushes.Black, PointF(90.f, 10.f))
     if (havetodraw) then
         newl.Paint(g)
         if line then 
