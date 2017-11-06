@@ -1,29 +1,6 @@
 open System.Windows.Forms
 open System.Drawing
 
-type W2V() =
-  let w2v = new Drawing2D.Matrix()
-  let v2w = new Drawing2D.Matrix()
-
-  member this.Translate(tx, ty) =
-    w2v.Translate(tx, ty)
-    v2w.Translate(-tx, -ty, Drawing2D.MatrixOrder.Append)
-
-  member this.Rotate(a) =
-    w2v.Rotate(a)
-    v2w.Rotate(-a, Drawing2D.MatrixOrder.Append)
-  
-  member this.RotateAtCenter (a, p) =
-    w2v.RotateAt(a, p)
-    v2w.RotateAt(-a, p, Drawing2D.MatrixOrder.Append)
-
-  member this.Scale(sx, sy) =
-    w2v.Scale(sx, sy)
-    v2w.Scale(1.f/sx, 1.f/sy, Drawing2D.MatrixOrder.Append)
-  
-  member this.W2V with get() = w2v
-  member this.V2W with get() = v2w
-
 let Point2PointF (p:Point) =
     PointF( float32(p.X), float32(p.Y))
 let PointFtoPoint (p:PointF) =
@@ -42,7 +19,46 @@ let RectF2Rect (r:RectangleF) =
 let TransformPoint (m:Drawing2D.Matrix) (p:PointF) =
         let pts = [| p |]
         m.TransformPoints(pts)
-        pts.[0]   
+        pts.[0]
+
+type W2V() =
+  let mutable w2v = new Drawing2D.Matrix()
+  let mutable v2w = new Drawing2D.Matrix()
+
+  member this.Translate(tx, ty) =
+    w2v.Translate(tx, ty)
+    v2w.Translate(-tx, -ty, Drawing2D.MatrixOrder.Append)
+
+  member this.Rotate(a) =
+    w2v.Rotate(a)
+    v2w.Rotate(-a, Drawing2D.MatrixOrder.Append)
+  
+  member this.RotateAtCenter (a, p) =
+    w2v.RotateAt(a, p)
+    v2w.RotateAt(-a, p, Drawing2D.MatrixOrder.Append)
+
+  member this.Scale(sx, sy) =
+    w2v.Scale(sx, sy)
+    v2w.Scale(1.f/sx, 1.f/sy, Drawing2D.MatrixOrder.Append)
+  
+  member this.ScaleAtCenter(sx,sy,p) =
+    this.Scale(sx,sy)
+    //w2v.Scale(sx,sy)
+    //v2w.Scale(1.f/sx, 1.f/sy, Drawing2D.MatrixOrder.Append)
+    let mutable m1 =new Drawing2D.Matrix()
+    m1.Scale(sx,sy)
+    let p1= TransformPoint m1 p
+    this.Translate(-(p1.X-p.X),-(p1.Y-p.Y))
+    //w2v.Translate(2.f*(p1.X-p.X),2.f*(p1.Y-p.Y))
+    //v2w.Translate(-2.f*(p1.X-p.X), 2.f*(p1.Y-p.Y))
+
+  member this.W2V 
+    with get() = w2v
+    and set(v) = w2v<-v
+  member this.V2W 
+    with get() = v2w
+    and set(v) = v2w<-v
+   
 
 type CoordinateType = View | World
 
@@ -196,7 +212,7 @@ type Rectbutton() as this =
   let mutable text = ""
   let mutable selected = false
 
-  let mutable font = Font("Arial", 8.f)
+  let mutable font = new Font("Arial", 8.f)
   let clickevt = new Event<System.EventArgs>()
   let mousedownevt = new Event<MouseEventArgs>()
   let mousemoveevt = new Event<MouseEventArgs>()
@@ -224,9 +240,9 @@ type Rectbutton() as this =
     let g = e.Graphics
     g.FillRectangle(Brushes.Gray , new Rectangle( PointFtoPoint(this.Location), SizeFtoSize(this.Size) ) );
     let sz = g.MeasureString(text, this.Parent.Font)
-    g.DrawString(text, Font(this.Font.FontFamily, 8.f), Brushes.Black, PointF(((this.Size.Width - sz.Width) / 2.f)+this.Location.X, (this.Size.Height - sz.Height) / 2.f+this.Location.Y))
+    g.DrawString(text, new Font(this.Font.FontFamily, 8.f), Brushes.Black, PointF(((this.Size.Width - sz.Width) / 2.f)+this.Location.X, (this.Size.Height - sz.Height) / 2.f+this.Location.Y))
     if this.Selected then
-      g.DrawRectangle(Pen(Color.Black, 2.f) , new Rectangle( PointFtoPoint(this.Location), SizeFtoSize(this.Size) ) );
+      g.DrawRectangle(new Pen(Color.Black, 2.f) , new Rectangle( PointFtoPoint(this.Location), SizeFtoSize(this.Size) ) );
     base.OnPaint(e)
 
 
@@ -266,13 +282,13 @@ type CirButtons() as this =
     let x1, y1 = center.X - float32(p.X), center.Y - float32(p.Y)
     sqr x1 + sqr y1 <= sqr radius
 
-  override this.OnMouseUp e = mouseupevt.Trigger(e); clickevt.Trigger(new System.EventArgs())
+  override this.OnMouseUp e = mouseupevt.Trigger(e); clickevt.Trigger(System.EventArgs())
   
   override this.OnPaint e =
     let g = e.Graphics
-    g.FillEllipse( new SolidBrush(this.Color), new Rectangle(PointFtoPoint(this.Location), SizeFtoSize(this.Size)))
+    g.FillEllipse( new SolidBrush(this.Color), Rectangle(PointFtoPoint(this.Location), SizeFtoSize(this.Size)))
     let sz = g.MeasureString(text, this.Parent.Font)
     g.DrawString(text, this.Parent.Font, Brushes.White, PointF(((this.Size.Width - sz.Width) / 2.f )+this.Location.X, ((this.Size.Height - sz.Height) / 2.f)+this.Location.Y))
     if this.Selected then
-      g.DrawEllipse(Pen(this.Color),new Rectangle( int(this.Location.X)-4, int(this.Location.Y)-4, int(this.Size.Width)+8, int(this.Size.Height)+8)) 
+      g.DrawEllipse(new Pen(this.Color),Rectangle( int(this.Location.X)-4, int(this.Location.Y)-4, int(this.Size.Width)+8, int(this.Size.Height)+8)) 
 
