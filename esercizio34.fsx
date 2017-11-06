@@ -115,7 +115,7 @@ type Editor() as this=
     |]
 
     let colorButtons= [|
-        CirButtons(Text="B", Color= Color.Black,Location=PointF(32.f,320.f), Selected=true);
+        CirButtons(Text="K", Color= Color.Black,Location=PointF(32.f,320.f), Selected=true);
         CirButtons(Text="B", Color=Color.Blue, Location=PointF(32.f,360.f));
         CirButtons(Text="R", Color=Color.Red,Location=PointF(32.f,400.f));
     |]
@@ -131,6 +131,7 @@ type Editor() as this=
         CirButtons(Text="-",Color= Color.Gray,Location=PointF(64.f, 510.f));
     |]
 
+    let animationButton = Rectbutton(Text="Start Animation", Location=PointF(8.f, 560.f), Size= SizeF(80.f,32.f) )
     let mutable newl = Letter() //per inserimento nuova lettera
     let mutable letters = ResizeArray<Letter>();//insieme di tutte le lettere presenti
     let mutable startPoint = PointF(112.f, 32.f) // punto dal quale viene considerato l'inserimento di letere successive
@@ -143,6 +144,9 @@ type Editor() as this=
     let mutable lTimer= new Timer(Interval=450) //timer per tick scrittura lettera ed help message
     let mutable aus= 4
     let mutable helpTimer= new Timer(Interval=1000) //timer per messaggio di aiuto
+
+    let mutable tick = 0
+    let mutable animationTimer= new Timer(Interval= 800) // Timer per l'animazione
 
     let mutable drag=false
     let mutable offset= PointF(0.f, 0.f)
@@ -166,7 +170,7 @@ type Editor() as this=
                 if lselected = -2 then
                     for l in letters do
                         l.Mat.Translate(10.f,0.f)
-                else this.Transform.Translate(-10.f,0.f)
+                else this.Transform.Translate(10.f,0.f)
             this.Invalidate()
         |"L"->
             if lselected >= 0 then
@@ -238,6 +242,7 @@ type Editor() as this=
         fontButtons |> Seq.iter (fun b -> b.Parent <- this; this.LWControls.Add(b))
         colorButtons |> Seq.iter (fun b -> b.Parent <- this; this.LWControls.Add(b))
         moveButtons |> Seq.iter (fun b -> b.Parent <- this; this.LWControls.Add(b))
+        animationButton.Parent<-this; this.LWControls.Add(animationButton)
         lTimer.Tick.Add( fun _ ->
             if line then
                 line<-false
@@ -250,6 +255,27 @@ type Editor() as this=
                 helpTimer.Stop()
             else aus<- aus - 1
             this.Invalidate()
+        )
+        animationTimer.Tick.Add(fun _->
+            for l in letters do
+                if(tick < 3) then
+                    l.Mat.RotateAtCenter(30.f, l.Center)
+                    l.Mat.Translate(-50.f, -10.f)
+                if( tick>=3 && tick<12) then
+                    l.Mat.RotateAtCenter(-10.f, l.Center)
+                    l.Mat.Translate(10.f, 0.f)
+                if( tick>=12 && tick<21) then
+                    l.Mat.RotateAtCenter(-10.f, l.Center)
+                    l.Mat.Translate(-10.f, 0.f)
+                if (tick>=21 && tick <30) then
+                    l.Mat.RotateAtCenter(-10.f, l.Center)
+                    l.Mat.Translate(10.f, 0.f)
+                if (tick>=30 && tick <39) then
+                    l.Mat.RotateAtCenter(-10.f, l.Center)
+                    l.Mat.Translate(-10.f, 0.f)
+
+                tick <- tick + 1
+                this.Invalidate()
         )
         buttons.[0].Click.Add(fun _ ->
             helpTimer.Start()
@@ -335,24 +361,36 @@ type Editor() as this=
             for c in colorButtons do
                 c.Selected<-false
             colorButtons.[0].Selected<-true
-            if(lselected <> -1) then
+            if(lselected >= 0) then
                 letters.[lselected].Color <- colorButtons.[0].Color
+            else
+                if lselected = -2 then
+                    for l in letters do
+                        l.Color <- colorButtons.[0].Color
             this.Invalidate()
         )
         colorButtons.[1].Click.Add( fun _ ->
             for c in colorButtons do
                 c.Selected<-false
             colorButtons.[1].Selected<-true
-            if(lselected <> -1) then
+            if(lselected >= 0) then
                 letters.[lselected].Color <- colorButtons.[1].Color
+            else
+                if lselected = -2 then
+                    for l in letters do
+                        l.Color <- colorButtons.[1].Color
             this.Invalidate()
         )
         colorButtons.[2].Click.Add( fun _ ->
             for c in colorButtons do
                 c.Selected<-false
             colorButtons.[2].Selected<-true
-            if(lselected <> -1) then
+            if(lselected >= 0) then
                 letters.[lselected].Color <- colorButtons.[2].Color
+            else
+                if lselected = -2 then
+                    for l in letters do
+                        l.Color <- colorButtons.[2].Color
             this.Invalidate()
         )
         moveButtons.[0].Click.Add( fun _ ->
@@ -388,6 +426,15 @@ type Editor() as this=
             moving scrollDir
         )
         
+        animationButton.Click.Add (fun _ ->
+            if (animationButton.Text = "Start Animation") then
+                animationButton.Text<- "Stop Animation"
+                tick<- 0
+                animationTimer.Start()
+            else 
+                animationButton.Text <-"Start Animation"
+                animationTimer.Stop()  
+        )
     member this.GetSelectedFont =
         let index= fontButtons |> Seq.tryFindIndex(fun f -> f.Selected)
         match index with
@@ -451,12 +498,19 @@ type Editor() as this=
                 scrollDir<- "-"
                 moving scrollDir
             |_-> ()
-        if (havetodraw && e.KeyValue>59 && e.KeyValue<91) then
+        if (havetodraw && (e.KeyValue>59 && e.KeyValue<91)  ) then
             havetodraw<-false
             let mutable s = e.KeyCode.ToString()
-            if(buttonUL.Text.Equals "UPPER") then
+            if(buttonUL.Text.Equals "UPPER"&& e.KeyValue>59 && e.KeyValue<91) then
                 s<- s.ToUpper()
             else s<-s.ToLower()
+            letters.Add( Letter(Char=s,Location= startDrawing, Font= this.GetSelectedFont,Color=this.GetSelectedColor))
+            lselected<-letters.Count - 1 
+            startDrawing<-PointF(startDrawing.X+26.f, startDrawing.Y)
+        if ( havetodraw && (e.KeyValue>47 && e.KeyValue<58)) then
+            havetodraw<-false
+            let mutable s = e.KeyCode.ToString()
+            s<- s.Substring(1)
             letters.Add( Letter(Char=s,Location= startDrawing, Font= this.GetSelectedFont,Color=this.GetSelectedColor))
             lselected<-letters.Count - 1 
             startDrawing<-PointF(startDrawing.X+26.f, startDrawing.Y)
