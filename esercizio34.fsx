@@ -10,11 +10,9 @@ f.Show()
 type Letter () as this =
     let mutable location = PointF()
     let mutable size= SizeF(26.f,32.f)
-
     let mutable char = string()
     let mutable font = new Font("Arial", 18.f)
     let mutable color = Color.Black
-    let mutable uppercase= true
     let mutable mat =  W2V()
     let mutable selected = true
 
@@ -33,9 +31,6 @@ type Letter () as this =
     member this.Color
         with get() = color
         and set(v) = color <- v;
-    member this.Uppercase
-        with get() = uppercase
-        and set(v) =uppercase<- v
     member this.Mat
         with get() = mat
         and set(v) = mat <- v;
@@ -43,6 +38,7 @@ type Letter () as this =
         with get() = selected
         and set(v) = selected <- v;
     
+    //restituisce il centro del carattere in coordinate mondo
     member this.Center =
         PointF(this.Location.X+(this.Size.Width/2.f),this.Location.Y+(this.Size.Height/2.f )) 
 
@@ -50,13 +46,14 @@ type Letter () as this =
         let a = [| PointF(single p.X, single p.Y) |]
         m.TransformPoints(a)
         a.[0]
+    //aumenta la dimensione del font
     member this.IncreaseSize =
         let h=font.GetHeight()
         let nf= new Font(this.Font.FontFamily, (this.Font.Size + 1.f))
         let nh= nf.GetHeight()
         this.Location<-PointF(this.Location.X - ((nh-h)/2.f),this.Location.Y - ((nh-h)/2.f)) 
         this.Font<-nf
-    
+    //diminuisce la dimensione del font
     member this.DecreaseSize =
         let h=font.GetHeight()
         let mutable sz= this.Font.Size - 1.f
@@ -66,7 +63,7 @@ type Letter () as this =
         let nh= nf.GetHeight()
         this.Location<-PointF(this.Location.X + ((h-nh)/2.f),this.Location.Y + ((h-nh)/2.f)) 
         this.Font<-nf
-
+    //permette di cambiare il case della lettera
     member this.ChangeCase(s:string) =
         let mutable b = this.Char.ToCharArray(0,1)
         let c =int( b.[0])
@@ -76,13 +73,10 @@ type Letter () as this =
             if ( c>= 97 && c<=122 && (s.Equals "UPPER")) then
                 this.Char<- this.Char.ToUpper()
 
-
     member this.HitTest(p:Point) =
         let loc = this.TransformP this.Mat.V2W p
         Rectangle(PointFtoPoint(this.Location), SizeFtoSize(this.Size)).Contains(Point(int(loc.X),int(loc.Y)))
         
-
-    
     member this.Paint(g:Graphics) =
         let ctx= g.Save()
         let aux= g.Transform.Clone()
@@ -137,20 +131,17 @@ type Editor() as this=
     let mutable startPoint = PointF(112.f, 32.f) // punto dal quale viene considerato l'inserimento di letere successive
     let mutable startDrawing = PointF(112.f, 32.f) //punto di inserimento nuova lettera
     let mutable havetodraw=false //true se si sta scrivendo una nuova lettera, false altrimenti
-
-    let mutable lselected= -1 //li se non è selezionata nessuna lettera, indice in letters altrimenti
-    
+    let mutable lselected= -1 //-1 se non è selezionata nessuna lettera, -2 se sono selezionate tutte, indice in letters altrimenti
     let mutable line=true;
+    let mutable aus= 8
     let mutable lTimer= new Timer(Interval=450) //timer per tick scrittura lettera ed help message
-    let mutable aus= 4
-    let mutable helpTimer= new Timer(Interval=1000) //timer per messaggio di aiuto
-
+    let mutable helpTimer= false //permette di impostare l'uso del timer lTimer 
     let mutable tick = 0
     let mutable aus2 = 1.f
     let mutable animationTimer= new Timer(Interval= 100) // Timer per l'animazione
 
-    let mutable drag=false
-    let mutable offset= PointF(0.f, 0.f)
+    let mutable drag=false //booleano che indica se si sta facendo drag and drop o meno
+    let mutable offset= PointF(0.f, 0.f) //distanza punto in cui si inizia drag and drop, location lettera selezionata
     
     let mutable scrollDir=""
     let moving s =
@@ -200,7 +191,7 @@ type Editor() as this=
                     for l in letters do
                         let p= l.Center
                         l.Mat.RotateAtCenter(-10.f, p) 
-                else //this.Transform.RotateAtCenter(-10.f,Point2PointF( Point(this.Size.Width/2, this.Size.Height/2)))
+                else 
                     let p= TransformPoint this.Transform.V2W (Point2PointF( Point(this.Size.Width/2, this.Size.Height/2))) 
                     this.Transform.RotateAtCenter(-10.f,p)
             this.Invalidate()
@@ -220,14 +211,14 @@ type Editor() as this=
         |"+"->
             if lselected >= 0 then
                 letters.[lselected].IncreaseSize
-            else //this.Transform.Scale(1.1f,1.1f)
+            else 
                 let p= TransformPoint this.Transform.V2W (Point2PointF( Point(this.Size.Width/2, this.Size.Height/2))) 
                 this.Transform.ScaleAtCenter(1.1f,1.1f,p)
             this.Invalidate()
         |"-"->
             if lselected >= 0 then
                 letters.[lselected].DecreaseSize
-            else //this.Transform.Scale(1.f/1.1f,1.f/1.1f)
+            else 
                 let p= TransformPoint this.Transform.V2W (Point2PointF( Point(this.Size.Width/2, this.Size.Height/2))) 
                 this.Transform.ScaleAtCenter(1.f/1.1f,1.f/1.1f,p)
             this.Invalidate()
@@ -245,50 +236,42 @@ type Editor() as this=
         moveButtons |> Seq.iter (fun b -> b.Parent <- this; this.LWControls.Add(b))
         animationButton.Parent<-this; this.LWControls.Add(animationButton)
         lTimer.Tick.Add( fun _ ->
-            if line then
-                line<-false
-            else line<-true
-            this.Invalidate()
-        )
-        helpTimer.Tick.Add(fun _ ->
-            if(aus = 0) then
-                aus<- 4
-                helpTimer.Stop()
-            else aus<- aus - 1
+            if not helpTimer then
+                if line then
+                    line<-false
+                else line<-true
+            else
+                if(aus = 0) then
+                    aus<- 8
+                    lTimer.Stop()
+                    helpTimer<-false
+                else aus<- aus - 1
             this.Invalidate()
         )
         animationTimer.Tick.Add(fun _->
-            //if(tick < 3) then
-                //for l in letters do
-                    //l.Mat.RotateAtCenter(30.f, l.Center)
-                    //l.Mat.Translate(-20.f, -10.f)
-            if( tick>=(3*int(aus2)) && tick<(12*int(aus2))) then
+            if( tick>0 && tick<=(9*int(aus2))) then
                 for l in letters do
                     l.Mat.RotateAtCenter(-10.f/aus2, l.Center)
                     l.Mat.Translate(10.f*aus2, 0.f)
-            if( tick>=(12*int(aus2)) && tick<(21*int(aus2))) then
+            if( tick>(9*int(aus2)) && tick<=(18*int(aus2))) then
                 for l in letters do
                     l.Mat.RotateAtCenter(-10.f/aus2, l.Center)
                     l.Mat.Translate(-10.f*aus2, 0.f)
-            if (tick>=(21*int(aus2)) && tick <(30*int(aus2))) then
+            if (tick>(18*int(aus2)) && tick <=(27*int(aus2))) then
                 for l in letters do
                     l.Mat.RotateAtCenter(-10.f/aus2, l.Center)
                     l.Mat.Translate(10.f*aus2, 0.f)
-            if (tick>=(30*int(aus2)) && tick <(39*int(aus2))) then
+            if (tick>(27*int(aus2)) && tick <=(36*int(aus2))) then
                 for l in letters do
                     l.Mat.RotateAtCenter(-10.f/aus2, l.Center)
                     l.Mat.Translate(-10.f*aus2, 0.f)
-            let mutable l= (39*int(aus2))
-            //if(tick >= l && tick < l+3) then
-                //for l in letters do
-                    //l.Mat.RotateAtCenter(-30.f, l.Center)
-                    //l.Mat.Translate(20.f*aus2, 10.f)
-            if(tick>= l+3 && tick< (l+3+54)) then
+            let mutable l= (36*int(aus2))
+            if(tick>= l && tick<=(l+54)) then
                 for l in letters do
                     l.Mat.RotateAtCenter(-20.f, l.Center)
                 animationTimer.Interval<-animationTimer.Interval*(2/3)+1
             tick <- tick + 1
-            l<- (l+3+54)
+            l<- (l+54)
             if(tick >= l && aus2 = 1.f) then
                 tick<- 0 
                 aus2<- 2.f
@@ -300,7 +283,8 @@ type Editor() as this=
             this.Invalidate()
         )
         buttons.[0].Click.Add(fun _ ->
-            helpTimer.Start()
+            helpTimer<-true
+            lTimer.Start()
             this.Invalidate()
         )
         buttons.[1].Click.Add(fun _ ->
@@ -526,6 +510,16 @@ type Editor() as this=
             | Keys.X ->
                 scrollDir<- "-"
                 moving scrollDir
+            | Keys.Back ->
+                if (lselected >= 0) then
+                    startDrawing<-letters.[lselected].Location
+                    letters.RemoveAt(lselected)
+                else if (lselected = -2) then
+                        letters.Clear()
+                        startDrawing<-startPoint
+                     else  havetodraw<-false   
+                lselected<- -1
+                this.Invalidate()
             |_-> ()
         if (havetodraw && (e.KeyValue>59 && e.KeyValue<91)  ) then
             havetodraw<-false
@@ -584,6 +578,10 @@ type Editor() as this=
                     lselected<- -1
                 this.Invalidate()
         if (e.Button.Equals(MouseButtons.Right)&& not (this.InButtons(l))) then
+            if(lTimer.Enabled) then
+                lTimer.Stop()
+                helpTimer<-false
+                aus<-8
             startDrawing<- l1
             startPoint<- l1
             for l in letters do
@@ -614,7 +612,7 @@ type Editor() as this=
         base.OnPaint(e)
         let g= e.Graphics
         let ctx = g.Save()
-        if (helpTimer.Enabled) then
+        if (lTimer.Enabled && helpTimer) then
             g.DrawString("Right Click every time you want select where start writing", new Font(FontFamily.GenericMonospace, 8.f),Brushes.Black, PointF(90.f, 10.f))
         g.Transform<- this.Transform.W2V
         if (havetodraw) then
