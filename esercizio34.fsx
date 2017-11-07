@@ -146,7 +146,8 @@ type Editor() as this=
     let mutable helpTimer= new Timer(Interval=1000) //timer per messaggio di aiuto
 
     let mutable tick = 0
-    let mutable animationTimer= new Timer(Interval= 800) // Timer per l'animazione
+    let mutable aus2 = 1.f
+    let mutable animationTimer= new Timer(Interval= 100) // Timer per l'animazione
 
     let mutable drag=false
     let mutable offset= PointF(0.f, 0.f)
@@ -257,25 +258,46 @@ type Editor() as this=
             this.Invalidate()
         )
         animationTimer.Tick.Add(fun _->
-            for l in letters do
-                if(tick < 3) then
-                    l.Mat.RotateAtCenter(30.f, l.Center)
-                    l.Mat.Translate(-50.f, -10.f)
-                if( tick>=3 && tick<12) then
-                    l.Mat.RotateAtCenter(-10.f, l.Center)
-                    l.Mat.Translate(10.f, 0.f)
-                if( tick>=12 && tick<21) then
-                    l.Mat.RotateAtCenter(-10.f, l.Center)
-                    l.Mat.Translate(-10.f, 0.f)
-                if (tick>=21 && tick <30) then
-                    l.Mat.RotateAtCenter(-10.f, l.Center)
-                    l.Mat.Translate(10.f, 0.f)
-                if (tick>=30 && tick <39) then
-                    l.Mat.RotateAtCenter(-10.f, l.Center)
-                    l.Mat.Translate(-10.f, 0.f)
-
-                tick <- tick + 1
-                this.Invalidate()
+            //if(tick < 3) then
+                //for l in letters do
+                    //l.Mat.RotateAtCenter(30.f, l.Center)
+                    //l.Mat.Translate(-20.f, -10.f)
+            if( tick>=(3*int(aus2)) && tick<(12*int(aus2))) then
+                for l in letters do
+                    l.Mat.RotateAtCenter(-10.f/aus2, l.Center)
+                    l.Mat.Translate(10.f*aus2, 0.f)
+            if( tick>=(12*int(aus2)) && tick<(21*int(aus2))) then
+                for l in letters do
+                    l.Mat.RotateAtCenter(-10.f/aus2, l.Center)
+                    l.Mat.Translate(-10.f*aus2, 0.f)
+            if (tick>=(21*int(aus2)) && tick <(30*int(aus2))) then
+                for l in letters do
+                    l.Mat.RotateAtCenter(-10.f/aus2, l.Center)
+                    l.Mat.Translate(10.f*aus2, 0.f)
+            if (tick>=(30*int(aus2)) && tick <(39*int(aus2))) then
+                for l in letters do
+                    l.Mat.RotateAtCenter(-10.f/aus2, l.Center)
+                    l.Mat.Translate(-10.f*aus2, 0.f)
+            let mutable l= (39*int(aus2))
+            //if(tick >= l && tick < l+3) then
+                //for l in letters do
+                    //l.Mat.RotateAtCenter(-30.f, l.Center)
+                    //l.Mat.Translate(20.f*aus2, 10.f)
+            if(tick>= l+3 && tick< (l+3+54)) then
+                for l in letters do
+                    l.Mat.RotateAtCenter(-20.f, l.Center)
+                animationTimer.Interval<-animationTimer.Interval*(2/3)+1
+            tick <- tick + 1
+            l<- (l+3+54)
+            if(tick >= l && aus2 = 1.f) then
+                tick<- 0 
+                aus2<- 2.f
+                animationTimer.Interval<- 80
+            else if(tick >=l && aus2 = 2.f) then
+                    tick<-0
+                    aus2<-1.f
+                    animationTimer.Interval<-100
+            this.Invalidate()
         )
         buttons.[0].Click.Add(fun _ ->
             helpTimer.Start()
@@ -430,10 +452,13 @@ type Editor() as this=
             if (animationButton.Text = "Start Animation") then
                 animationButton.Text<- "Stop Animation"
                 tick<- 0
+                aus2<-1.f
                 animationTimer.Start()
             else 
                 animationButton.Text <-"Start Animation"
-                animationTimer.Stop()  
+                animationTimer.Stop()
+                tick<-0
+                aus2<-1.f  
         )
     member this.GetSelectedFont =
         let index= fontButtons |> Seq.tryFindIndex(fun f -> f.Selected)
@@ -457,6 +482,10 @@ type Editor() as this=
             if b.Color.Equals c then
                 b.Selected<-true     
             else b.Selected<-false
+    member this.ChangeCase (b) =
+        if (b>= 97 && b<=122) then
+            buttonUL.Text<-"lower"
+        else buttonUL.Text<-"UPPER"
          
     member this.InButtons(p:Point) =
         let mutable x = false
@@ -543,6 +572,8 @@ type Editor() as this=
                 lselected<-nrletters-idx-1
                 this.ChangeFont(letters.[lselected].Font)
                 this.ChangeColor(letters.[lselected].Color)
+                let mutable by = letters.[lselected].Char.ToCharArray(0,1)
+                this.ChangeCase(int(by.[0]))
                 l1<- TransformPoint letters.[lselected].Mat.V2W l1
                 drag<-true
                 offset<- PointF(l1.X - letters.[lselected].Location.X,l1.Y - letters.[lselected].Location.Y)
