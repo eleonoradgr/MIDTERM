@@ -132,8 +132,8 @@ type Editor() as this=
     let mutable startDrawing = PointF(112.f, 32.f) //punto di inserimento nuova lettera
     let mutable havetodraw=false //true se si sta scrivendo una nuova lettera, false altrimenti
     let mutable lselected= -1 //-1 se non è selezionata nessuna lettera, -2 se sono selezionate tutte, indice in letters altrimenti
-    let mutable line=true;
-    let mutable aus= 8
+    let mutable line=true; 
+    let mutable aus= 8 
     let mutable lTimer= new Timer(Interval=450) //timer per tick scrittura lettera ed help message
     let mutable helpTimer= false //permette di impostare l'uso del timer lTimer 
     let mutable tick = 0
@@ -143,6 +143,7 @@ type Editor() as this=
     let mutable drag=false //booleano che indica se si sta facendo drag and drop o meno
     let mutable offset= PointF(0.f, 0.f) //distanza punto in cui si inizia drag and drop, location lettera selezionata
     
+    //permette di cambiare la posizione di una lettera se è selezionata, altrimenti cambia la vista
     let mutable scrollDir=""
     let moving s =
         match s with
@@ -235,6 +236,7 @@ type Editor() as this=
         colorButtons |> Seq.iter (fun b -> b.Parent <- this; this.LWControls.Add(b))
         moveButtons |> Seq.iter (fun b -> b.Parent <- this; this.LWControls.Add(b))
         animationButton.Parent<-this; this.LWControls.Add(animationButton)
+        //Timer per messaggio di aiuto e inserimento nuova lettera
         lTimer.Tick.Add( fun _ ->
             if not helpTimer then
                 if line then
@@ -248,6 +250,7 @@ type Editor() as this=
                 else aus<- aus - 1
             this.Invalidate()
         )
+        //Timer per animazione
         animationTimer.Tick.Add(fun _->
             if( tick>0 && tick<=(9*int(aus2))) then
                 for l in letters do
@@ -444,33 +447,40 @@ type Editor() as this=
                 tick<-0
                 aus2<-1.f  
         )
+    //restituisce il Font selezionato nei bottoni
     member this.GetSelectedFont =
         let index= fontButtons |> Seq.tryFindIndex(fun f -> f.Selected)
         match index with
             |Some idx ->
                 fontButtons.[idx].Font
             |_ -> new Font(FontFamily.GenericMonospace, 12.f)
+    
+    //restituisce il colore selezionato nei bottoni
     member this.GetSelectedColor =
         let index= colorButtons |> Seq.tryFindIndex(fun c -> c.Selected)
         match index with
             |Some idx ->
                 colorButtons.[idx].Color
             |_ -> Color.Black
+    //seleziona il bottone con il Font corrispondente a quello passato per parametro se esiste
     member this.ChangeFont(f:Font) =
         for b in fontButtons do
             if b.Font.Equals f then 
                 b.Selected<- true
             else b.Selected<-false
+    //seleziona il bottone con il colore corrispondente a quello passato per parametro se esiste
     member this.ChangeColor(c:Color) =
         for b in colorButtons do
             if b.Color.Equals c then
                 b.Selected<-true     
             else b.Selected<-false
+    //setta il case della lettera selezionata
     member this.ChangeCase (b) =
         if (b>= 97 && b<=122) then
             buttonUL.Text<-"lower"
         else buttonUL.Text<-"UPPER"
-         
+
+    //permette di verificate se un punto è nell'area assegnata ai bottoni  
     member this.InButtons(p:Point) =
         let mutable x = false
         for b in buttons do
@@ -521,6 +531,7 @@ type Editor() as this=
                 lselected<- -1
                 this.Invalidate()
             |_-> ()
+        //scrivo lettere
         if (havetodraw && (e.KeyValue>59 && e.KeyValue<91)  ) then
             havetodraw<-false
             let mutable s = e.KeyCode.ToString()
@@ -530,6 +541,8 @@ type Editor() as this=
             letters.Add( Letter(Char=s,Location= startDrawing, Font= this.GetSelectedFont,Color=this.GetSelectedColor))
             lselected<-letters.Count - 1 
             startDrawing<-PointF(startDrawing.X+26.f, startDrawing.Y)
+            this.Invalidate()
+        //scrivo numeri
         if ( havetodraw && (e.KeyValue>47 && e.KeyValue<58)) then
             havetodraw<-false
             let mutable s = e.KeyCode.ToString()
@@ -537,21 +550,24 @@ type Editor() as this=
             letters.Add( Letter(Char=s,Location= startDrawing, Font= this.GetSelectedFont,Color=this.GetSelectedColor))
             lselected<-letters.Count - 1 
             startDrawing<-PointF(startDrawing.X+26.f, startDrawing.Y)
+            this.Invalidate()
+        //spazio
         if (havetodraw && e.KeyValue =32) then
             havetodraw<-false
             startDrawing<-PointF(startDrawing.X+26.f, startDrawing.Y)
             lselected<- -1
+        //a capo
         if (havetodraw && e.KeyValue =13) then
             havetodraw<-false
             startDrawing<-PointF(startPoint.X, startDrawing.Y+32.f)
             lselected<- -1
        
-        printfn "%d" e.KeyValue
         
     override this.OnMouseDown e =
         base.OnMouseDown(e)
         let l= e.Location
         let mutable l1 = TransformPoint  this.Transform.V2W  (Point2PointF(l))
+        //seleziono lettera
         if (e.Button.Equals(MouseButtons.Left) && not (this.InButtons(l))) then
             havetodraw<-false
             let lettersrev=Seq.rev(letters)
@@ -577,6 +593,7 @@ type Editor() as this=
                     c.Selected<-false
                     lselected<- -1
                 this.Invalidate()
+        //seleziono posizione in cui scrivere
         if (e.Button.Equals(MouseButtons.Right)&& not (this.InButtons(l))) then
             if(lTimer.Enabled) then
                 lTimer.Stop()
@@ -593,6 +610,7 @@ type Editor() as this=
             this.Invalidate()
 
     override this.OnMouseMove e =
+    //gestione drag & drop
         if(drag && lselected >= 0) then
             base.OnMouseDown(e)
             let l= e.Location
@@ -624,7 +642,6 @@ type Editor() as this=
         for l in letters do
             l.Paint(g)
         g.Restore(ctx)
-        //base.OnPaint(e)
 
 
 

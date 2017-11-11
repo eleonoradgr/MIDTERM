@@ -43,14 +43,10 @@ type W2V() =
   
   member this.ScaleAtCenter(sx,sy,p) =
     this.Scale(sx,sy)
-    //w2v.Scale(sx,sy)
-    //v2w.Scale(1.f/sx, 1.f/sy, Drawing2D.MatrixOrder.Append)
     let mutable m1 =new Drawing2D.Matrix()
     m1.Scale(sx,sy)
     let p1= TransformPoint m1 p
     this.Translate(-(p1.X-p.X),-(p1.Y-p.Y))
-    //w2v.Translate(2.f*(p1.X-p.X),2.f*(p1.Y-p.Y))
-    //v2w.Translate(-2.f*(p1.X-p.X), 2.f*(p1.Y-p.Y))
 
   member this.W2V 
     with get() = w2v
@@ -204,6 +200,7 @@ type LWContainer() as this =
       this.Invalidate()
     | _ -> ()
 
+//LWControl per realizzare bottoni selezionabili rettangolari
 type Rectbutton() as this =
   
   inherit LWControl()
@@ -245,7 +242,7 @@ type Rectbutton() as this =
       g.DrawRectangle(new Pen(Color.Black, 2.f) , new Rectangle( PointFtoPoint(this.Location), SizeFtoSize(this.Size) ) );
     base.OnPaint(e)
 
-
+//LWControl per realizzare bottoni selezionabili circolari
 type CirButtons() as this =
   inherit LWControl()
   
